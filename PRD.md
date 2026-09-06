@@ -1,9 +1,6 @@
 # Product Requirements Document (PRD)
-## Smart Tatkal Guardian v2 — Bot Attack & Behavioral Defense System
+## TollBooth
 
-**Project type:** Personal / portfolio project
-**Author:** Rishabh
-**Origin:** Rebuilt from Smart Tatkal Guardian (FAR AWAY 2026 hackathon, Team AlgoMinds — waitlisted)
 
 ---
 
@@ -19,7 +16,7 @@ This project is not an attempt to "fix IRCTC." It is a self-contained demonstrat
 
 - Build a minimal but functional Tatkal-style booking clone as an attack target
 - Build real automated bot clients (not simulated data) that attack the clone using realistic strategies
-- Build a multi-agent behavioral detection system ("Smart Tatkal Guardian") that scores live traffic and distinguishes bot-driven sessions from genuine ones
+- Build a multi-agent behavioral detection system ("TollBooth") that scores live traffic and distinguishes bot-driven sessions from genuine ones
 - Produce a live, demoable before/after: run the attack, show Guardian catching it in real time on a dashboard
 - Document the reasoning behind each design decision (why naive approaches fail, why ensemble scoring is used) as a portfolio/interview narrative asset
 
