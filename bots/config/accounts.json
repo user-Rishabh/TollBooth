@@ -1,0 +1,20 @@
+[
+  {
+    "username": "tatkal_runner_1",
+    "password": "Password123!",
+    "aadhaar_linked_mobile": "9876543210",
+    "fixed_otp": "123456"
+  },
+  {
+    "username": "tatkal_runner_2",
+    "password": "Password123!",
+    "aadhaar_linked_mobile": "9123456780",
+    "fixed_otp": "123456"
+  },
+  {
+    "username": "tatkal_runner_3",
+    "password": "Password123!",
+    "aadhaar_linked_mobile": "9988776655",
+    "fixed_otp": "123456"
+  }
+]
