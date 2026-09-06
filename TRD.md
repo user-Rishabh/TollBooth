@@ -1,5 +1,5 @@
 # Technical Requirements Document (TRD)
-## Smart Tatkal Guardian v2
+## TollBooth
 
 ---
 
@@ -9,7 +9,7 @@ Three independent modules communicating over HTTP/WebSocket:
 
 1. **Clone** — the target booking application (frontend + backend + DB)
 2. **Bots** — standalone Playwright-driven attack scripts, run separately, hitting the Clone
-3. **Guardian** — a middleware/reverse-proxy + detection service sitting in front of the Clone's booking API, plus a real-time dashboard
+3. **TollBooth** — a middleware/reverse-proxy + detection service sitting in front of the Clone's booking API, plus a real-time dashboard
 
 ## 2. Tech Stack
 
