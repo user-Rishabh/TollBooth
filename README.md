@@ -27,20 +27,44 @@ IRCTC's Tatkal booking window opens a small number of emergency-quota seats at a
 
 Three independent modules, run like a checkpoint on a rail line — every request has to pass through the booth before it reaches the platform:
 
-1. **Clone** — a minimal booking target (login, search, book) that mimics the Tatkal contention pattern
+1. **Clone** — a minimal booking target with a **mock Aadhaar-style OTP login** (linked mobile → OTP → verify, mirroring the real flow's shape with no actual UIDAI integration), train search, and a book button
 2. **Bots** — Playwright-driven attackers: naive (zero delay) and evasive (randomized delay, simulated human-like timing)
-3. **Tollbooth** (the defense) — sits in front of the Clone's booking endpoint, scores every request across three independent agents, and combines them into one weighted risk score before deciding: allow, challenge, or block
+3. **Tollbooth** (the defense) — scores every session continuously **from the moment of login**, across three independent agents, and combines them into one weighted risk score before deciding: allow, challenge, or block
 
 ```
-User / Bot → Clone Frontend → Tollbooth Middleware → Decision Engine → Clone Backend
-                                       │
-                                       ├── Behavioral Agent  (captcha / keystroke / mouse timing)
-                                       ├── Network Agent     (IP / device fingerprint clustering)
-                                       ├── Pattern Agent     (skipped or out-of-order steps)
-                                       └── Live Dashboard    (WebSocket feed of every decision)
+User / Bot → Login + OTP → Clone Frontend → Tollbooth Middleware → Decision Engine → Clone Backend
+                                                    │
+                                                    ├── Behavioral Agent  (mouse movement, keystroke timing structure, captcha timing)
+                                                    ├── Network Agent     (IP / device fingerprint clustering)
+                                                    ├── Pattern Agent     (skipped or out-of-order steps)
+                                                    └── Live Dashboard    (WebSocket feed of every decision)
 ```
 
 No single agent can force a hard block on its own — a bot has to fool all three at once, and any risky-but-ambiguous session gets a soft challenge instead of an outright rejection, so genuine users (including those on assistive tech) never get punished by one noisy signal.
+
+## 🔍 What Tollbooth actually checks
+
+**Behavioral Agent**
+- Mouse movement before each field is focused (or absence of it)
+- Inter-field and inter-keystroke timing
+- Coefficient of variation of those intervals — catches "randomized" bot delays that are statistically too even to be human
+- Same-hand vs. cross-hand keystroke digraph timing — real typing has physical-keyboard structure a naive randomizer doesn't reproduce
+- Autocorrelation between consecutive timing gaps — human timing has rhythm; independently re-rolled random delays don't
+- CAPTCHA solve time (one weighted input, never a standalone threshold)
+- Page-load-to-first-action delay
+
+**Network Agent**
+- Device/browser fingerprint clustering across accounts
+- Request rate per IP during the booking window
+- Headless/automation indicators (weak signal, low weight)
+
+**Pattern Agent**
+- Skipped or out-of-order steps in the session
+- Missing page/asset loads before a booking call
+- No dwell time on intermediate screens
+- Client-side `isTrusted` event check (catches naive extension-autofill bots; documented as not catching Playwright, which is natively trusted)
+
+Full detail on each check, plus the scoring formula and thresholds, is in [`docs/TRD.md`](./docs/TRD.md).
 
 ## 🎫 Tech stack
 
@@ -83,7 +107,7 @@ tollbooth/
 └── docs/
     ├── PRD.md
     ├── TRD.md
-    └── DESIGN.md
+    └── IMPLEMENTATION_PLAN.md
 ```
 
 ## 🚉 Getting started
@@ -109,12 +133,12 @@ Watch the live dashboard to see each session scored and a decision made in real 
 ## 📖 Documentation
 
 - [`docs/PRD.md`](./docs/PRD.md) — product requirements: problem, goals, scope, user stories
-- [`docs/TRD.md`](./docs/TRD.md) — technical requirements: data models, API contracts, agent specs
-- [`docs/DESIGN.md`](./docs/DESIGN.md) — system design: architecture diagram, sequence flows, repo layout
+- [`docs/TRD.md`](./docs/TRD.md) — technical requirements: data models, API contracts, full detection-agent checklist
+- [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md) — phase-by-phase solo build order
 
 ## 🛡️ Status
 
-Personal / portfolio project, solo build. Not affiliated with or attacking the real IRCTC system in any way — the Clone is a fully self-contained standalone target, built specifically so the attack and defense can be tested safely and honestly.
+Personal / portfolio project, solo build. Not affiliated with or attacking the real IRCTC system in any way, and does not integrate with real Aadhaar/UIDAI — both the target and the identity layer are fully self-contained mocks, built specifically so the attack and defense can be tested safely and honestly.
 
 ## Author
 
