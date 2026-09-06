@@ -1,0 +1,1 @@
+"""Bot attack simulation configuration."""

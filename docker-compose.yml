@@ -1,0 +1,71 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: tollbooth-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-tollbooth}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - tollbooth-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  clone-backend:
+    image: alpine:latest
+    container_name: tollbooth-clone-backend
+    command: sh -c "echo 'clone-backend placeholder running' && tail -f /dev/null"
+    ports:
+      - "${CLONE_BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - tollbooth-net
+
+  clone-frontend:
+    image: alpine:latest
+    container_name: tollbooth-clone-frontend
+    command: sh -c "echo 'clone-frontend placeholder running' && tail -f /dev/null"
+    ports:
+      - "${CLONE_FRONTEND_PORT:-3000}:3000"
+    networks:
+      - tollbooth-net
+
+  tollbooth-middleware:
+    image: alpine:latest
+    container_name: tollbooth-middleware
+    command: sh -c "echo 'tollbooth-middleware placeholder running' && tail -f /dev/null"
+    ports:
+      - "${TOLLBOOTH_MIDDLEWARE_PORT:-8001}:8001"
+    depends_on:
+      - clone-backend
+    networks:
+      - tollbooth-net
+
+  tollbooth-dashboard:
+    image: alpine:latest
+    container_name: tollbooth-dashboard
+    command: sh -c "echo 'tollbooth-dashboard placeholder running' && tail -f /dev/null"
+    ports:
+      - "${TOLLBOOTH_DASHBOARD_PORT:-3001}:3001"
+    depends_on:
+      - tollbooth-middleware
+    networks:
+      - tollbooth-net
+
+volumes:
+  postgres_data:
+
+networks:
+  tollbooth-net:
+    driver: bridge

@@ -47,7 +47,7 @@ This project is not an attempt to "fix IRCTC," and it never interacts with the r
 
 ## 6. Feature Scope (MVP)
 
-### 6.1 IRCTC Clone
+### 6.1 IRCTC Clone ("RailBook")
 - **Mock Aadhaar authentication**: user enters a mock Aadhaar-linked mobile number → receives a mock OTP (displayed on-screen or logged server-side for test purposes, since there is no real SMS/UIDAI integration) → enters OTP to complete login
 - Train search (seeded/hardcoded train list)
 - Single "Book" action that decrements seat inventory
@@ -60,8 +60,11 @@ This project is not an attempt to "fix IRCTC," and it never interacts with the r
 
 ### 6.3 Tollbooth (Defense)
 
-**Behavioral Agent — checks:**
+**Mouse/Pointer Agent — checks:**
 - Mouse movement present (or absent) before each field is focused
+- Movement path shape (straight-line teleport vs. multi-point curved path)
+
+**Keyboard/Typing Agent — checks:**
 - Inter-field and inter-keystroke timing intervals
 - Statistical shape of those intervals: coefficient of variation (catches uniform "randomized" bot delays, which are statistically too even to be human)
 - Same-hand vs. cross-hand keystroke digraph timing (real typing has physical-keyboard-driven structure that naive randomized delays don't reproduce)
@@ -69,20 +72,24 @@ This project is not an attempt to "fix IRCTC," and it never interacts with the r
 - CAPTCHA solve time (as one weighted input, never a standalone threshold)
 - Page-load-to-first-action delay
 
+**Cross-Modal Consistency Check:**
+- `consistency_score = 1 - |mouse_score - keyboard_score|`
+- Verifies that mouse and keyboard timing dynamics correlate as coming from the same unified human actor
+
 **Network Agent — checks:**
 - Device/browser fingerprint correlation across sessions/accounts
 - Shared fingerprint despite different account IDs or IPs
 - Request rate per IP during the booking window
-- Headless-browser / automation fingerprint indicators (e.g. `navigator.webdriver` flag, missing plugin lists) — noted as a weaker, evadable signal, included only as a minor contributing input
+- Headless-browser / automation fingerprint indicators (e.g. `navigator.webdriver` flag, missing plugin lists)
 
 **Pattern Agent — checks:**
 - Sequence of page/API calls per session (skipped intermediate steps)
 - Missing asset/page-load requests before a booking call (a real browser loads CSS/JS/images; a raw API-hammering bot skips this entirely)
 - No dwell time on intermediate pages (e.g., jumping from OTP verification straight to a completed booking with no time spent on the seat-selection screen)
-- Client-side event trust check (`isTrusted`) to flag naive extension-injected form values (does not catch Playwright/CDP-driven input, which is natively trusted — documented as a known limitation, not a gap in the design)
+- Client-side event trust check (`isTrusted`) to flag naive extension-injected form values
 
 **Orchestrator & Decision Engine:**
-- Combines all agent scores into one weighted `final_risk_score`, continuously updated from login through final submission
+- Combines agent scores into one weighted `final_risk_score`, continuously updated from login through final submission
 - No single signal can force a hard block — decision is always based on the combined score
 - Graduated response: allow / soft challenge / block
 - Tiered scoring: cheap statistical checks run synchronously in the request path; any heavier/ensemble-model analysis runs asynchronously for borderline cases

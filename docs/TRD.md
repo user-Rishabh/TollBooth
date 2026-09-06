@@ -80,7 +80,9 @@ captcha_solve_time_ms: integer
 inter_field_intervals_ms: integer[]
 inter_keystroke_intervals_ms: integer[]
 mouse_movement_before_focus: boolean
-behavioral_score: float
+mouse_score: float
+keyboard_score: float
+consistency_score: float
 network_score: float
 pattern_score: float
 final_risk_score: float
@@ -92,7 +94,7 @@ decided_at: timestamp
 ```
 id: uuid
 session_id: uuid (fk)
-agent_name: enum(behavioral, network, pattern)
+agent_name: enum(mouse, keyboard, network, pattern, consistency)
 signal_name: string
 signal_value: float
 timestamp: timestamp
@@ -126,6 +128,7 @@ POST /api/book                  { train_id, session_token, client_timing_metadat
   "inter_field_intervals_ms": [320, 410, 275],
   "inter_keystroke_intervals_ms": [110, 95, 140, 88, 105],
   "mouse_movement_before_focus": true,
+  "mouse_trajectory": [{"x": 102, "y": 240, "t": 12}, {"x": 180, "y": 280, "t": 58}],
   "page_load_to_first_action_ms": 1200
 }
 ```
@@ -145,16 +148,48 @@ Tollbooth forwards the request to the Clone backend only if `decision != block`.
 
 ```
 WS /tollbooth/live
-  -> streams: { session_id, agent_scores: {behavioral, network, pattern}, final_risk_score, decision, timestamp }
+  -> streams: { session_id, agent_scores: {mouse, keyboard, consistency, network, pattern}, final_risk_score, decision, timestamp }
 ```
 
 ## 5. Detection Agent Specifications — Full Checklist
 
-### 5.1 Behavioral Agent
+Detection is organized by **modality** — each independent channel a real human's session produces (mouse, keyboard, network) is scored separately, and then checked for **consistency with the other modalities**, before feeding the orchestrator. This is a deliberate architecture choice: a bot author typically fakes each modality independently (one function for mouse jitter, a separate one for keystroke delay), so even a bot that scores "human-like" on every individual modality can still be caught if those modalities don't move together the way a real single human body naturally does.
+
+```
+                 SESSION
+                    │
+        ┌───────────┼───────────┐
+        ↓           ↓           ↓
+    Mouse/       Keyboard/    Network/
+    Pointer      Typing       Device
+    Agent        Agent        Agent
+        │           │           │
+        └──────┬────┴───────────┘
+               ↓
+      CROSS-MODAL CONSISTENCY CHECK
+               ↓
+        (+ Pattern Agent — sequence/
+         navigation checks, feeds in
+         directly, not a "modality")
+               ↓
+         ORCHESTRATOR → final_risk_score
+               ↓
+      ALLOW / CHALLENGE / BLOCK
+```
+
+### 5.1 Mouse/Pointer Agent
 
 | Check | What it measures | Why it matters |
 |---|---|---|
 | Mouse movement before focus | Was there cursor movement before a field was focused? | Naive bots (`.fill()`/`.type()`) skip this entirely; evasive bots can fake it |
+| Movement path shape | Straight-line teleport vs. multi-point curved path | Real cursor motion has natural curvature/overshoot; naive simulated paths are often too geometrically clean |
+
+**Output:** `mouse_score` (0–1, higher = more bot-like).
+
+### 5.2 Keyboard/Typing Agent
+
+| Check | What it measures | Why it matters |
+|---|---|---|
 | Inter-field timing | Time between completing one field and starting the next | Bots without delay logic show near-zero, uniform gaps |
 | Inter-keystroke timing | Time between individual keystrokes within a field | Same purpose, finer granularity |
 | **Coefficient of variation (CoV)** of keystroke/field intervals | `std_dev / mean` of the interval array | A "randomized" bot delay (e.g. `random.uniform(a,b)`) produces a specific, unnaturally even CoV; real human timing has a different distribution shape |
@@ -163,9 +198,19 @@ WS /tollbooth/live
 | CAPTCHA solve time | Time from CAPTCHA render to submission | One weighted input among many — never a standalone pass/fail threshold |
 | Page-load-to-first-action delay | Time between page render and the first user action | Very short values suggest a script acting immediately on DOM-ready rather than a human reading the page first |
 
-**Output:** `behavioral_score` (0–1, higher = more bot-like), computed as a weighted combination of the above, evaluated against a running distribution of recent sessions rather than fixed hard thresholds.
+**Output:** `keyboard_score` (0–1, higher = more bot-like).
 
-### 5.2 Network Agent
+### 5.2a Cross-Modal Consistency Check
+
+```
+consistency_score = 1 - |mouse_score - keyboard_score|
+```
+
+A real human's mouse and keyboard behavior come from the same body and the same mental state at the same time — they naturally move together (e.g. a rushed session shows up as *both* jerkier mouse movement *and* less even typing). A bot that fakes each modality with a separate, uncoordinated randomizer can end up looking human-like on one modality while still looking bot-like on the other. A low `consistency_score` (the two modality scores disagree strongly) is itself treated as a suspicious signal, independent of what either individual modality score says — this makes it harder to evade Tollbooth by only polishing one modality at a time.
+
+**Output:** `consistency_score` (0–1, higher = more consistent/human-like), fed into the orchestrator alongside the two modality scores.
+
+### 5.3 Network Agent
 
 | Check | What it measures |
 |---|---|
@@ -175,7 +220,7 @@ WS /tollbooth/live
 
 **Output:** `network_score` (0–1).
 
-### 5.3 Pattern Agent
+### 5.4 Pattern Agent
 
 | Check | What it measures |
 |---|---|
@@ -184,16 +229,17 @@ WS /tollbooth/live
 | No dwell time on intermediate pages | E.g. zero time spent on the seat-selection screen between OTP verification and booking |
 | `isTrusted` event check (client-side) | Flags naive extension-injected form values (`dispatchEvent` from page-context JS produces `isTrusted: false`). Documented limitation: does **not** catch Playwright/CDP-driven input, which is natively trusted by the browser — this check only catches the extension-autofill bot archetype, not the Playwright archetype |
 
-**Output:** `pattern_score` (0–1).
+**Output:** `pattern_score` (0–1). Not a "modality" like mouse/keyboard/network — feeds directly into the orchestrator rather than through the cross-modal consistency check.
 
-### 5.4 Orchestrator
+### 5.5 Orchestrator
 
 ```
-final_risk_score = w1*behavioral_score + w2*network_score + w3*pattern_score
+final_risk_score = w1*mouse_score + w2*keyboard_score + w3*(1 - consistency_score)
+                  + w4*network_score + w5*pattern_score
 ```
-Weights (`w1, w2, w3`) tunable; start with equal weighting, adjust based on observed detection performance against naive vs. evasive bot archetypes during testing. Score is recomputed continuously as new signals arrive throughout the session (from login onward), not only once at final submission.
+Weights (`w1..w5`) tunable; start with equal weighting, adjust based on observed detection performance against naive vs. evasive bot archetypes during testing. `(1 - consistency_score)` is used so that low consistency (modalities disagree) *increases* risk, consistent with the other terms where higher = more bot-like. Score is recomputed continuously as new signals arrive throughout the session (from login onward), not only once at final submission.
 
-### 5.5 Decision Engine
+### 5.6 Decision Engine
 ```
 if final_risk_score < T_low:      decision = allow
 elif final_risk_score < T_high:   decision = challenge   (soft, accessible secondary check)
@@ -211,7 +257,7 @@ No single agent score alone can force a `block` — only the combined `final_ris
 
 ## 7. Deployment
 
-- `docker-compose.yml` orchestrating: clone-frontend, clone-backend, tollbooth-service, tollbooth-dashboard, shared Postgres (or Supabase local), optional Redis
+- `docker-compose.yml` orchestrating: clone-frontend, clone-backend, tollbooth-middleware, tollbooth-dashboard, shared Postgres (or Supabase local), optional Redis
 - Single command (`docker compose up`) brings up the full demo environment
 
 ## 8. Capacity Notes (measured, not assumed)
