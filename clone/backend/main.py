@@ -9,8 +9,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from .models import User, OtpVerification
-from .database import get_db, init_db, hash_password, verify_password
+try:
+    from .models import User, OtpVerification
+    from .database import get_db, init_db, hash_password, verify_password, DEFAULT_SEED_ACCOUNTS
+except (ImportError, ValueError):
+    from models import User, OtpVerification
+    from database import get_db, init_db, hash_password, verify_password, DEFAULT_SEED_ACCOUNTS
 
 app = FastAPI(
     title="RailBook Backend API",
@@ -79,17 +83,27 @@ class VerifyOtpResponse(BaseModel):
 # --- Helper Functions ---
 
 def get_fixed_otp_for_user(username: str) -> Optional[str]:
-    """Checks if username belongs to seed test accounts in accounts.json."""
-    try:
-        accounts_path = Path(__file__).resolve().parent.parent.parent / "bots" / "config" / "accounts.json"
-        if accounts_path.exists():
-            with open(accounts_path, "r", encoding="utf-8") as f:
-                accounts = json.load(f)
-            for acc in accounts:
-                if acc.get("username") == username:
-                    return acc.get("fixed_otp", "123456")
-    except Exception:
-        pass
+    """Checks if username belongs to seed test accounts in accounts.json or defaults."""
+    possible_paths = [
+        Path(__file__).resolve().parent.parent.parent / "bots" / "config" / "accounts.json",
+        Path("/bots/config/accounts.json"),
+        Path("./bots/config/accounts.json"),
+        Path(__file__).resolve().parent / "accounts.json",
+    ]
+    for p in possible_paths:
+        if p.exists():
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    accounts = json.load(f)
+                for acc in accounts:
+                    if acc.get("username") == username:
+                        return acc.get("fixed_otp", "123456")
+            except Exception:
+                pass
+
+    for acc in DEFAULT_SEED_ACCOUNTS:
+        if acc.get("username") == username:
+            return acc.get("fixed_otp", "123456")
     return None
 
 def generate_mock_otp(username: str) -> str:
@@ -215,6 +229,12 @@ def verify_otp(req: VerifyOtpRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No OTP requested. Please request an OTP first."
         )
+
+    if otp_record.verified_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OTP has already been verified and used. Please request a new OTP."
+        )
     
     now = datetime.now(timezone.utc)
     # Ensure timezone awareness
@@ -256,4 +276,7 @@ def verify_otp(req: VerifyOtpRequest, db: Session = Depends(get_db)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("clone.backend.main:app", host="0.0.0.0", port=8000, reload=True)
+    try:
+        uvicorn.run("clone.backend.main:app", host="0.0.0.0", port=8000, reload=True)
+    except Exception:
+        uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

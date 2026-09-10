@@ -6,11 +6,18 @@ Tollbooth Modality Scoring Agents:
 - Network/Device Agent
 - Pattern/Navigation Agent
 """
-from .mouse import score_mouse
-from .keyboard import score_keyboard
-from .consistency import compute_consistency
-from .network import score_network
-from .pattern import score_pattern
+try:
+    from .mouse import score_mouse
+    from .keyboard import score_keyboard
+    from .consistency import compute_consistency
+    from .network import score_network
+    from .pattern import score_pattern
+except (ImportError, ValueError):
+    from mouse import score_mouse
+    from keyboard import score_keyboard
+    from consistency import compute_consistency
+    from network import score_network
+    from pattern import score_pattern
 
 __all__ = [
     "score_mouse",

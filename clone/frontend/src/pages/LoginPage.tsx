@@ -74,7 +74,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               key={acc.user}
               type="button"
               onClick={() => handleQuickFill(acc.user, acc.pass)}
-              className="flex-1 py-1 px-2 text-[11px] font-medium bg-white hover:bg-amber-100/60 border border-amber-200 text-amber-950 rounded transition shadow-2xs text-center"
+              className="flex-1 py-1 px-2 text-[11px] font-medium bg-white hover:bg-amber-100/60 border border-amber-200 text-amber-950 rounded transition shadow-sm text-center"
             >
               {acc.label}
             </button>

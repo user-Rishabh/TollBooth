@@ -21,9 +21,12 @@ services:
       retries: 5
 
   clone-backend:
-    image: alpine:latest
+    build:
+      context: ./clone/backend
+      dockerfile: Dockerfile
     container_name: tollbooth-clone-backend
-    command: sh -c "echo 'clone-backend placeholder running' && tail -f /dev/null"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-tollbooth}
     ports:
       - "${CLONE_BACKEND_PORT:-8000}:8000"
     depends_on:
@@ -33,18 +36,24 @@ services:
       - tollbooth-net
 
   clone-frontend:
-    image: alpine:latest
+    build:
+      context: ./clone/frontend
+      dockerfile: Dockerfile
     container_name: tollbooth-clone-frontend
-    command: sh -c "echo 'clone-frontend placeholder running' && tail -f /dev/null"
+    environment:
+      VITE_CLONE_API_URL: http://localhost:${TOLLBOOTH_MIDDLEWARE_PORT:-8001}
     ports:
       - "${CLONE_FRONTEND_PORT:-3000}:3000"
     networks:
       - tollbooth-net
 
   tollbooth-middleware:
-    image: alpine:latest
+    build:
+      context: ./tollbooth
+      dockerfile: middleware/Dockerfile
     container_name: tollbooth-middleware
-    command: sh -c "echo 'tollbooth-middleware placeholder running' && tail -f /dev/null"
+    environment:
+      CLONE_BACKEND_URL: http://clone-backend:8000
     ports:
       - "${TOLLBOOTH_MIDDLEWARE_PORT:-8001}:8001"
     depends_on:
@@ -53,9 +62,12 @@ services:
       - tollbooth-net
 
   tollbooth-dashboard:
-    image: alpine:latest
+    build:
+      context: ./tollbooth/dashboard
+      dockerfile: Dockerfile
     container_name: tollbooth-dashboard
-    command: sh -c "echo 'tollbooth-dashboard placeholder running' && tail -f /dev/null"
+    environment:
+      VITE_TOLLBOOTH_WS_URL: ws://localhost:${TOLLBOOTH_MIDDLEWARE_PORT:-8001}/tollbooth/live
     ports:
       - "${TOLLBOOTH_DASHBOARD_PORT:-3001}:3001"
     depends_on:

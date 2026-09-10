@@ -189,7 +189,7 @@ export const OtpVerificationPage: React.FC<OtpVerificationPageProps> = ({
         </div>
         <div className="mt-1 flex items-center justify-between">
           <span className="text-xs text-amber-800">Your simulated OTP code is:</span>
-          <span className="font-mono text-base font-extrabold tracking-widest text-primary bg-white px-2 py-0.5 rounded border border-amber-300 shadow-2xs">
+          <span className="font-mono text-base font-extrabold tracking-widest text-primary bg-white px-2 py-0.5 rounded border border-amber-300 shadow-sm">
             {currentOtpCode}
           </span>
         </div>
@@ -216,7 +216,7 @@ export const OtpVerificationPage: React.FC<OtpVerificationPageProps> = ({
               onChange={(e) => handleDigitChange(idx, e.target.value)}
               onKeyDown={(e) => handleKeyDown(idx, e)}
               onPaste={idx === 0 ? handlePaste : undefined}
-              className="w-11 h-13 sm:w-12 sm:h-14 text-center text-xl font-bold font-mono border-2 rounded-lg border-slate-300 focus:border-secondary focus:ring-2 focus:ring-secondary/20 outline-none transition bg-slate-50 focus:bg-white text-dark shadow-2xs"
+              className="w-11 h-12 sm:w-12 sm:h-14 text-center text-xl font-bold font-mono border-2 rounded-lg border-slate-300 focus:border-secondary focus:ring-2 focus:ring-secondary/20 outline-none transition bg-slate-50 focus:bg-white text-dark shadow-sm"
             />
           ))}
         </div>
